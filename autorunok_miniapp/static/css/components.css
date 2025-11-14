@@ -1,0 +1,247 @@
+/* лента и карточки */
+.list{display:flex;flex-direction:column;gap:10px}
+.item{display:flex;gap:10px;background:var(--card);border:1px solid var(--stroke);border-radius:14px;overflow:hidden;transition:.15s}
+.item:active{background:#141c26}
+.item:link,.item:visited,.item:hover,.item:active{color:inherit!important;background:var(--card)!important}
+
+.ph{width:128px;min-width:128px;height:88px;background:#0f141a url() center/cover no-repeat;position:relative;border-right:1px solid var(--stroke)}
+.cnt{flex:1;display:flex;flex-direction:column;padding:10px 10px 10px 0}
+.ttl{font-weight:700;line-height:1.25;margin-bottom:6px}
+.price{font-weight:800;font-size:15px}
+.meta{color:var(--muted);font-size:12px;margin-top:2px}
+.row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.pill{border:1px solid var(--stroke);background:#0f141a;color:#d6e3f7;border-radius:9px;padding:6px 10px;font-size:13px}
+.pill.primary{background:var(--accent);border-color:transparent;color:#001018;font-weight:800}
+.badge{position:absolute;top:6px;left:6px;background:var(--accent);color:#001018;font-weight:800;font-size:11px;padding:3px 6px;border-radius:7px}
+.cam{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);font-size:11px;padding:3px 6px;border-radius:8px}
+.fav.on{outline:2px solid var(--accent)}
+.muted{color:var(--muted);font-size:13px;text-align:center;margin-top:24px}
+
+/* кнопка избранного */
+.fav-btn{
+  position:absolute; top:6px; right:6px;
+  width:32px; height:32px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.38); border:1px solid rgba(255,255,255,.1);
+  cursor:pointer; transition:transform .08s ease, background .2s ease;
+}
+.fav-btn:hover{ background:rgba(0,0,0,.52); }
+.fav-btn:active{ transform:scale(.96); }
+.fav-btn svg{ fill:currentColor; color:#cfe3ff; opacity:.9; }
+.fav-btn.on{ background:rgba(34,211,238,.18); border-color:rgba(34,211,238,.5); }
+.fav-btn.on svg{ color:#22D3EE; opacity:1; }
+
+/* поиск/чипсы */
+.srow{display:flex;gap:8px;align-items:center}
+.search{flex:1;display:flex;align-items:center;gap:8px;background:#0f141a;border:1px solid var(--stroke);padding:10px 12px;border-radius:12px}
+.search input{flex:1;border:none;outline:none;background:transparent;color:#fff;font-size:15px}
+.chips{display:flex;gap:8px;overflow:auto;padding:10px 2px}
+.chip{white-space:nowrap;background:#0f141a;border:1px solid var(--stroke);color:#cfe3ff;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
+.chip.on{background:#14202b;border-color:#2b3b4d;color:#fff}
+.smeta{color:var(--muted);font-size:12px;margin:6px 2px}
+.close{background:#14202b;border:1px solid #2b3b4d;color:#cfe3ff;border-radius:10px;padding:10px 12px;cursor:pointer}
+.profile-card{
+  background:var(--card);
+  border:1px solid var(--stroke);
+  border-radius:14px;
+  padding:12px;
+  margin-top:8px;
+}
+/* === Профиль === */
+
+.profile-page{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:4px 0 12px;
+}
+
+/* шапка профиля */
+.profile-header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px;
+  border-radius:14px;
+  background:var(--card);
+  border:1px solid var(--stroke);
+}
+
+.profile-avatar{
+  width:46px;
+  height:46px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#22d3ee,#38bdf8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#001018;
+  font-weight:900;
+  font-size:20px;
+  box-shadow:0 0 0 2px rgba(0,0,0,.4);
+}
+
+.profile-info{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.profile-name{
+  font-weight:800;
+  font-size:16px;
+}
+.profile-username{
+  font-size:13px;
+  color:var(--muted);
+}
+
+/* статистика */
+.profile-stats{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.profile-stat{
+  flex:1 1 0;
+  min-width:90px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#0f141a;
+  border:1px solid var(--stroke);
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.profile-stat-value{
+  font-weight:800;
+  font-size:15px;
+}
+.profile-stat-label{
+  font-size:12px;
+  color:var(--muted);
+}
+
+/* заголовок секции */
+.profile-section-title{
+  margin-top:4px;
+  font-size:14px;
+  font-weight:700;
+  color:#e8f0ff;
+}
+
+/* когда нет объявлений */
+.profile-empty{
+  margin-top:6px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:#101722;
+  border:1px dashed var(--stroke);
+  font-size:13px;
+  color:var(--muted);
+}
+
+/* карточка "моего" объявления */
+.my-ad-card{
+  margin-top:8px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:var(--card);
+  border:1px solid var(--stroke);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.my-ad-main{
+  display:flex;
+  gap:10px;
+}
+
+.my-ad-photo{
+  width:80px;
+  height:60px;
+  border-radius:10px;
+  background:#0f141a center/cover no-repeat;
+  border:1px solid var(--stroke);
+  flex-shrink:0;
+}
+
+.my-ad-body{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.my-ad-title{
+  font-size:14px;
+  font-weight:700;
+}
+.my-ad-price{
+  font-size:14px;
+  font-weight:800;
+}
+.my-ad-meta{
+  font-size:12px;
+  color:var(--muted);
+}
+
+/* статус */
+.status-badge{
+  display:inline-flex;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  margin-top:4px;
+}
+
+.status-active{
+  background:rgba(34,197,94,.15);
+  color:#4ade80;
+  border:1px solid rgba(34,197,94,.4);
+}
+.status-pending{
+  background:rgba(234,179,8,.12);
+  color:#fde68a;
+  border:1px solid rgba(234,179,8,.4);
+}
+.status-rejected{
+  background:rgba(248,113,113,.12);
+  color:#fecaca;
+  border:1px solid rgba(248,113,113,.5);
+}
+.status-hidden{
+  background:rgba(148,163,184,.12);
+  color:#cbd5f5;
+  border:1px solid rgba(148,163,184,.4);
+}
+
+/* кнопки под объявлением */
+.my-ad-actions{
+  display:flex;
+  gap:12px;
+  padding-top:4px;
+  border-top:1px solid rgba(15,23,42,.7);
+}
+
+.btn-link{
+  border:none;
+  background:none;
+  padding:0;
+  font-size:13px;
+  color:var(--accent);
+  font-weight:600;
+  cursor:pointer;
+}
+.btn-link:hover{
+  text-decoration:underline;
+}
+.btn-link.danger{
+  color:#fb7185;
+}
+.thumb.dragging {
+  opacity: 0.6;
+  transform: scale(0.96);
+}

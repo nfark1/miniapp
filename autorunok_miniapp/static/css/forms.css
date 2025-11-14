@@ -1,0 +1,68 @@
+.form{display:flex;flex-direction:column;gap:10px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.inp{display:flex;flex-direction:column;gap:6px; position:relative;}
+.lab{color:var(--muted);font-size:12px}
+
+.ctl{background:#0f141a;border:1px solid var(--stroke);color:#fff;border-radius:12px;padding:10px 12px;font-size:15px}
+textarea.ctl{min-height:84px;resize:vertical}
+.ctl:disabled{opacity:.6;cursor:not-allowed}
+
+/* подсказки */
+.suggest{
+  position:absolute; left:0; right:0; top:calc(100% + 6px);
+  background:#0f141a; border:1px solid var(--stroke);
+  border-radius:12px; max-height:220px; overflow:auto; z-index:60;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);
+}
+.suggest.hidden{ display:none; }
+.suggest-item{ padding:10px 12px; font-size:14px; color:#d6e3f7; cursor:pointer; }
+.suggest-item:hover,.suggest-item.active{ background:#14202b; color:#fff; }
+
+/* ошибки/тост */
+.ctl.invalid{border-color:var(--bad)!important;box-shadow:0 0 0 3px rgba(255,77,109,.12)}
+.err{color:var(--bad);font-size:12px;margin-top:4px}
+.shake{animation:shake .28s linear 1}
+@keyframes shake{
+  0%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}
+  60%{transform:translateX(-2px)}80%{transform:translateX(2px)}100%{transform:translateX(0)}
+}
+
+.primaryBtn{background:var(--accent);border:none;color:#001018;font-weight:800;padding:12px;border-radius:12px;font-size:16px}
+.ghostBtn{background:#14202b;border:1px solid #2b3b4d;color:#cfe3ff;border-radius:12px;padding:12px}
+.rowBtns{display:flex;gap:8px}
+.hint{color:var(--muted);font-size:12px;margin-top:-4px}
+
+/* === TOAST — системное уведомление === */
+.toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+
+  /* 🔥 поднимаем выше — на 35% высоты экрана */
+  bottom: 25vh;
+
+  background: #12202b;
+  border: 1px solid #1f3347;
+  color: #dff3ff;
+
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+
+  z-index: 3000;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-6px);
+}
+
+/* фикс полей в две колонки и адаптив */
+.row2 .inp{ min-width:0; }
+.row2 .ctl{ display:block; width:100%; box-sizing:border-box; height:44px; padding:10px 12px; line-height:1.2; overflow:hidden; }
+@media (max-width:420px){ .row2{ grid-template-columns:1fr; } }

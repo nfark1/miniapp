@@ -1,0 +1,85 @@
+/* header можно оставить, но поднимем на всякий случай над контентом */
+header{
+  display:flex;align-items:center;justify-content:center;
+  padding:12px 16px;border-bottom:1px solid var(--stroke);
+  background:rgba(13,18,25,.9);backdrop-filter:blur(8px);
+  position:sticky;top:0;z-index:900;         /* было 10 */
+}
+header img{width:28px;height:28px;margin-right:10px;filter:drop-shadow(0 0 2px rgba(0,0,0,.4))}
+header .title{font-weight:800;font-size:18px;letter-spacing:.3px;}
+
+.wrap{ padding:12px 12px calc(var(--tabbar-h) + env(safe-area-inset-bottom)); max-width:820px; margin:0 auto; }
+
+/* нижняя панель — всегда САМЫЙ верхний слой */
+.tabbar{
+  position:fixed; left:0; right:0; bottom:0;
+  background:rgba(13,18,25,0.9); backdrop-filter:blur(10px);
+  border-top:none; box-shadow:0 -2px 10px rgba(0,0,0,.4);
+  padding:6px 10px calc(6px + env(safe-area-inset-bottom));
+  z-index:1000;                               /* было 50 */
+  min-height:58px;
+}
+.tabs{ max-width:820px; margin:0 auto; display:grid; grid-template-columns:repeat(5,1fr); gap:6px; align-items:center; }
+.tab{
+  position:relative; display:flex; align-items:center; justify-content:center; gap:4px;
+  padding:8px 0; border-radius:12px; color:#cfe3ff; transition:background .15s ease, color .15s ease;
+}
+.tab:active{ background:var(--tap); }
+.tab.active{ color:#fff; }
+.tab.active::after{ content:""; position:absolute; bottom:4px; width:22px; height:3px; border-radius:2px; background:var(--accent); }
+
+.plus{ transform:translateY(-10px); }
+.plus .fab{
+  width:58px;height:58px;border-radius:18px;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;color:#001018;font-weight:900;
+  box-shadow:0 2px 10px rgba(34,211,238,.25); transition:transform .15s ease, box-shadow .2s ease;
+}
+.tab.plus:active .fab{ transform:translateY(3px); box-shadow:0 1px 4px rgba(34,211,238,.15); }
+.tab.plus:focus-visible .fab{ box-shadow:0 0 0 3px rgba(34,211,238,.35); }
+.tab.plus .fab, .tab.plus .fab *{ pointer-events:none; }
+
+.tab .badge {
+  position: absolute;
+  top: 4px;
+  right: 22%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bad);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+
+/* показываем, если есть избранные */
+.tab[data-count]:not([data-count="0"]) .badge {
+  display: flex;
+}
+
+.tabbar .tab svg{
+  width:26px;height:26px; stroke:currentColor; fill:none; stroke-width:2;
+  stroke-linecap:round; stroke-linejoin:round; opacity:.9; display:block;
+}
+.tabbar .tab.active svg{ opacity:1 }
+.plus .fab svg{ stroke:#001018; fill:none; stroke-width:2 }
+
+/* декоративный разделитель — опусти ниже всего, чтобы не перехватывал клики */
+body::after{
+  content:""; position:fixed; left:0; right:0;
+  bottom:var(--tabbar-h); height:2px; background:var(--bg);
+  z-index:1;                                   /* было 49 */
+}
+
+/* адаптив */
+@media (max-width:600px){
+  :root{ --tabbar-h:62px; }
+  .tabbar{ padding:6px 10px calc(6px + env(safe-area-inset-bottom)); }
+  .tab svg{ width:24px;height:24px; }
+  .plus .fab{ width:52px;height:52px;border-radius:14px; box-shadow:0 4px 16px rgba(34,211,238,.25); }
+  .tab .badge{ top:4px; right:18%; }
+}
