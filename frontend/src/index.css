@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+/* Базовая высота и сброс отступов */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* 🔒 Блок скролла/свайпа страницы целиком */
+html,
+body {
+  overscroll-behavior: none;          /* без "оттягивания" вниз */
+  touch-action: pan-y;                /* только вертикальный скролл внутри */
+  -webkit-text-size-adjust: 100%;     /* не увеличивать шрифт самовольно */
+}
+
+body {
+  background-color: #020617; /* slate-950 */
+  color: #f8fafc;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Корневой контейнер мини-аппа */
+#root {
+  overscroll-behavior: none;
+  touch-action: pan-y;
+  max-width: 480px;               /* как экран телефона */
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 🔒 Запрет выделения текста везде */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+
+  /* Убрать синюю подсветку при тапе на мобилке */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ✅ Но разрешить выделение и работу курсора в полях ввода */
+input,
+textarea {
+  user-select: text;
+}
+/* 🔥 Неоновая анимация для ТОП */
+@keyframes badgeGlowTop {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(34, 211, 238, 0.5),
+      0 0 20px rgba(34, 211, 238, 0.25);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgba(34, 211, 238, 0.9),
+      0 0 28px rgba(34, 211, 238, 0.55);
+    transform: translateY(-0.5px);
+  }
+}
+
+/* ⭐ Неоновая анимация для ПРЕМИУМ */
+@keyframes badgeGlowPremium {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(192, 132, 252, 0.5),
+      0 0 20px rgba(192, 132, 252, 0.25);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgba(192, 132, 252, 0.9),
+      0 0 28px rgba(192, 132, 252, 0.55);
+    transform: translateY(-0.5px);
+  }
+}
+
+/* Классы-обёртки для удобства */
+.badge-anim-top {
+  animation: badgeGlowTop 1.8s ease-in-out infinite;
+}
+
+.badge-anim-premium {
+  animation: badgeGlowPremium 2s ease-in-out infinite;
+}
