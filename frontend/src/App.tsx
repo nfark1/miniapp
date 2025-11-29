@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { Listing, View } from "./types/types";
 
 import { FeedList } from "./components/FeedList";
@@ -11,6 +11,10 @@ import { AddView } from "./components/AddView/AddView";
 import { EditView } from "./components/EditView/EditView";
 import type { AddFormData, LocalPhoto } from "./components/AddView/AddView";
 
+// сколько объявлений показывать сначала и шаг подгрузки
+const INITIAL_VISIBLE = 6;
+const LOAD_STEP = 6;
+
 const API_BASE =
   "https://symmetrical-capybara-7vxw5747qpgq3wxpg-8001.app.github.dev";
 
@@ -19,11 +23,79 @@ const App: React.FC = () => {
   const [view, setView] = useState<View>("home");
   const [items, setItems] = useState<Listing[]>([]);
   const [selected, setSelected] = useState<Listing | null>(null);
-  const [favIds, setFavIds] = useState<Set<number>>(new Set());
   const [editItem, setEditItem] = useState<Listing | null>(null);
   const [editReturnView, setEditReturnView] = useState<View>("profile");
-  const [sellerProfileUsername, setSellerProfileUsername] = useState<string | null>(null);
+  const [sellerProfileUsername, setSellerProfileUsername] =
+    useState<string | null>(null);
   const [sellerProfileItems, setSellerProfileItems] = useState<Listing[]>([]);
+
+  // 🔹 контейнер ленты
+  const mainRef = useRef<HTMLDivElement | null>(null);
+
+  // 🔹 Pull-to-refresh
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [pullDistance, setPullDistance] = useState(0);
+  const PULL_THRESHOLD = 70; // порог в пикселях
+
+  // ленивый рендер
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+
+  // избранное (с сохранением в localStorage)
+  const [favIds, setFavIds] = useState<Set<number>>(() => {
+    if (typeof window === "undefined") {
+      return new Set();
+    }
+
+    try {
+      const raw = window.localStorage.getItem("favIds");
+      if (!raw) return new Set();
+
+      const arr = JSON.parse(raw) as number[];
+      return new Set(arr);
+    } catch (e) {
+      console.error("favIds load error", e);
+      return new Set();
+    }
+  });
+
+  // 🔹 ID объявления, которое нужно открыть при старте (из start_param)
+  const [startListingId, setStartListingId] = useState<number | null>(null);
+
+  // ===== Чтение start_param из Telegram WebApp =====
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    const startParam = tg?.initDataUnsafe?.start_param as string | undefined;
+
+    // ждём формат "listing_123"
+    if (startParam && startParam.startsWith("listing_")) {
+      const idPart = startParam.split("_")[1];
+      const parsed = Number(idPart);
+      if (!Number.isNaN(parsed)) {
+        setStartListingId(parsed);
+      }
+    }
+  }, []);
+
+  // ✅ Сброс количества видимых объявлений при смене экрана / обновлении списка
+  useEffect(() => {
+    if (view === "home" || view === "fav") {
+      setVisibleCount(INITIAL_VISIBLE);
+      // сбрасываем скролл наверх при смене вкладки
+      if (mainRef.current) {
+        mainRef.current.scrollTop = 0;
+      }
+    }
+  }, [view, items.length]);
+
+  // ✅ Сохранение избранного в localStorage при каждом изменении
+  useEffect(() => {
+    try {
+      const arr = Array.from(favIds);
+      localStorage.setItem("favIds", JSON.stringify(arr));
+    } catch (e) {
+      console.error("favIds save error", e);
+    }
+  }, [favIds]);
 
   // ===== Загрузка объявлений =====
   useEffect(() => {
@@ -43,6 +115,18 @@ const App: React.FC = () => {
 
     load();
   }, []);
+
+  // ===== Авто-открытие объявления по start_param, когда данные загрузились =====
+  useEffect(() => {
+    if (!startListingId) return;
+    if (!items.length) return;
+
+    const found = items.find((it) => it.id === startListingId);
+    if (found) {
+      setSelected(found);
+      setView("item");
+    }
+  }, [startListingId, items]);
 
   // избранное только по активным
   const favCount = items.filter(
@@ -84,21 +168,178 @@ const App: React.FC = () => {
   // избранное — только из активных
   const favItems = activeItems.filter((it) => favIds.has(it.id));
 
-  // что показываем в ленте
-  const listToRender = view === "fav" ? favItems : activeItems;
+  // базовый список для главной/избранного
+  const baseList = view === "fav" ? favItems : activeItems;
 
-  const toggleFav = (id: number) => {
+  // что показываем в ленте (для home / fav — slice по visibleCount)
+  const listToRender =
+    view === "home" || view === "fav"
+      ? baseList.slice(0, visibleCount)
+      : activeItems;
+
+  // ===== PULL-TO-REFRESH (свайп вниз на главной/избранном) =====
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (view !== "home" && view !== "fav") return;
+    const el = mainRef.current;
+    if (!el) return;
+
+    // тянем только если мы в самом верху списка
+    if (el.scrollTop > 0) return;
+
+    setTouchStartY(e.touches[0].clientY);
+    setPullDistance(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartY === null) return;
+    const el = mainRef.current;
+    if (!el) return;
+
+    const currentY = e.touches[0].clientY;
+    const delta = currentY - touchStartY;
+
+    // если двигаем вверх — сбрасываем
+    if (delta <= 0) {
+      setPullDistance(0);
+      return;
+    }
+
+    // если уже проскроллились вниз — не тянем
+    if (el.scrollTop > 0) return;
+
+    setPullDistance(delta);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartY === null) return;
+
+    if (pullDistance > PULL_THRESHOLD && !isLoading) {
+      refreshListings();
+    }
+
+    setTouchStartY(null);
+    setPullDistance(0);
+  };
+
+  // 🔥 Избранное: локальный Set + глобальный likes_count
+  const toggleFav = async (id: number) => {
+    const wasFav = favIds.has(id); // было ли в избранном
+    const isAdding = !wasFav;
+    const delta = isAdding ? 1 : -1;
+
+    // 1) Мгновенно обновляем локальный Set (UI)
     setFavIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
+
+    // 2) Пытаемся обновить глобальный счётчик лайков на бэке
+    try {
+      const res = await fetch(`${API_BASE}/api/listings/${id}/likes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delta }),
+      });
+
+      if (!res.ok) {
+        console.error("like update failed", await res.text());
+        // откат favIds, если бэк не принял
+        setFavIds((prev) => {
+          const next = new Set(prev);
+          if (wasFav) {
+            next.add(id);
+          } else {
+            next.delete(id);
+          }
+          return next;
+        });
+        return;
+      }
+
+      const updated: Listing = await res.json();
+
+      // обновляем объявление в общем списке
+      setItems((prev) =>
+        prev.map((it) => (it.id === updated.id ? updated : it)),
+      );
+
+      // если сейчас открыт детальный просмотр этого объявления —
+      // тоже обновим его там
+      setSelected((prev) =>
+        prev && prev.id === updated.id ? updated : prev,
+      );
+    } catch (e) {
+      console.error("like update error", e);
+      // откат favIds при ошибке сети
+      setFavIds((prev) => {
+        const next = new Set(prev);
+        if (wasFav) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+        return next;
+      });
+    }
   };
 
   const openItem = (it: Listing) => {
     setSelected(it);
     setView("item");
+
+    // увеличиваем счётчик просмотров на бэке
+    fetch(`${API_BASE}/api/listings/${it.id}/views`, {
+      method: "POST",
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          console.error("views update failed", await res.text());
+          return;
+        }
+        const updated: Listing = await res.json();
+
+        setItems((prev) =>
+          prev.map((item) => (item.id === updated.id ? updated : item)),
+        );
+        setSelected((prev) =>
+          prev && prev.id === updated.id ? updated : prev,
+        );
+      })
+      .catch((err) => {
+        console.error("views update error", err);
+      });
+  };
+
+  const handleShareListing = async (it: Listing) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/listings/${it.id}/shares`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        console.error("share update failed", await res.text());
+        return;
+      }
+
+      const updated: Listing = await res.json();
+
+      // обновляем общий список
+      setItems((prev) =>
+        prev.map((item) => (item.id === updated.id ? updated : item)),
+      );
+
+      // если открыта детальная карточка — обновляем и её
+      setSelected((prev) =>
+        prev && prev.id === updated.id ? updated : prev,
+      );
+    } catch (e) {
+      console.error("share update error", e);
+    }
   };
 
   const goHome = () => {
@@ -201,7 +442,9 @@ const App: React.FC = () => {
 
   // ===== Удаление =====
   const handleDeleteListing = async (id: number) => {
-    const ok = window.confirm("Точно удалить объявление? Отменить будет нельзя.");
+    const ok = window.confirm(
+      "Точно удалить объявление? Отменить будет нельзя.",
+    );
     if (!ok) return;
 
     try {
@@ -222,7 +465,9 @@ const App: React.FC = () => {
 
   // ===== Снять с продажи =====
   const handleHideListing = async (id: number) => {
-    if (!window.confirm("Снять объявление с продажи? Оно уйдёт в «Скрытые»."))
+    if (
+      !window.confirm("Снять объявление с продажи? Оно уйдёт в «Скрытые».")
+    )
       return;
 
     try {
@@ -290,7 +535,8 @@ const App: React.FC = () => {
   };
 
   const handleRejectListing = async (id: number) => {
-    if (!window.confirm("Отклонить объявление? Оно уйдёт в скрытые.")) return;
+    if (!window.confirm("Отклонить объявление? Оно уйдёт в скрытые."))
+      return;
 
     try {
       const res = await fetch(`${API_BASE}/api/listings/${id}/status`, {
@@ -324,123 +570,183 @@ const App: React.FC = () => {
 
   // ===== Редактирование =====
   const handleEditFromProfile = (it: Listing) => {
-  setEditItem(it);
-  setEditReturnView("profile");
-  setView("edit");
-};
+    setEditItem(it);
+    setEditReturnView("profile");
+    setView("edit");
+  };
 
-const handleEditFromAdmin = (it: Listing) => {
-  setEditItem(it);
-  setEditReturnView("admin");
-  setView("edit");
-};
+  const handleEditFromAdmin = (it: Listing) => {
+    setEditItem(it);
+    setEditReturnView("admin");
+    setView("edit");
+  };
 
   const handleUpdateListing = async (
-  data: AddFormData,
-  photosState: LocalPhoto[],
-) => {
-  if (!editItem) return;
+    data: AddFormData,
+    photosState: LocalPhoto[],
+  ) => {
+    if (!editItem) return;
 
-  // 1) Собираем итоговый массив URL по порядку
-  const finalUrls: string[] = [];
+    // 1) Собираем итоговый массив URL по порядку
+    const finalUrls: string[] = [];
 
-  for (const p of photosState) {
-    if (p.file) {
-      // новое фото → грузим
-      const fd = new FormData();
-      fd.append("file", p.file);
+    for (const p of photosState) {
+      if (p.file) {
+        // новое фото → грузим
+        const fd = new FormData();
+        fd.append("file", p.file);
 
-      const res = await fetch(`${API_BASE}/api/upload`, {
-        method: "POST",
-        body: fd,
+        const res = await fetch(`${API_BASE}/api/upload`, {
+          method: "POST",
+          body: fd,
+        });
+
+        if (!res.ok) {
+          console.error("upload error", await res.text());
+          throw new Error("upload failed");
+        }
+
+        const j = (await res.json()) as { url: string };
+        const fullUrl = `${API_BASE}${j.url}`;
+        finalUrls.push(fullUrl);
+      } else {
+        // старое фото → оставляем URL как есть
+        finalUrls.push(p.preview);
+      }
+    }
+
+    // 2) Новый title
+    const title =
+      `${data.brand} ${data.model}`.trim() ||
+      data.brand ||
+      data.model ||
+      editItem.title;
+
+    const body = {
+      title,
+      price: data.price,
+      district: data.district,
+      year: data.year,
+      mileage: data.mileage,
+      desc: data.desc,
+      photos: finalUrls,
+      status: "moderation",
+    };
+
+    const res = await fetch(`${API_BASE}/api/listings/${editItem.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      console.error("update error", await res.text());
+      alert("Не удалось сохранить изменения. Попробуй ещё раз.");
+      return;
+    }
+
+    await refreshListings();
+    setEditItem(null);
+    setView(editReturnView === "admin" ? "admin" : "profile");
+  };
+
+  const handleOpenSellerProfile = (username: string) => {
+    // берём все объявления этого продавца
+    const sellerAds = items.filter(
+      (it) =>
+        it.owner &&
+        username &&
+        it.owner.toLowerCase() === username.toLowerCase() &&
+        (it.status ?? "active") === "active",
+    );
+
+    setSellerProfileUsername(username);
+    setSellerProfileItems(sellerAds);
+    setView("seller_profile");
+  };
+
+  const handleSetBadge = async (
+    id: number,
+    badge: "top" | "premium" | null,
+  ) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/listings/${id}/badge`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ badge }),
       });
 
       if (!res.ok) {
-        console.error("upload error", await res.text());
-        throw new Error("upload failed");
+        console.error("badge update failed", await res.text());
+        alert("Не удалось изменить выделение объявления (ТОП/ПРЕМИУМ).");
+        return;
       }
 
-      const j = (await res.json()) as { url: string };
-      const fullUrl = `${API_BASE}${j.url}`;
-      finalUrls.push(fullUrl);
-    } else {
-      // старое фото → оставляем URL как есть
-      finalUrls.push(p.preview);
+      const updated: Listing = await res.json();
+
+      setItems((prev) =>
+        prev.map((it) => (it.id === id ? updated : it)),
+      );
+    } catch (e) {
+      console.error("badge update error", e);
+      alert("Ошибка при изменении ТОП/ПРЕМИУМ.");
     }
-  }
-
-  // 2) Новый title
-  const title =
-    `${data.brand} ${data.model}`.trim() ||
-    data.brand ||
-    data.model ||
-    editItem.title;
-
-  const body = {
-    title,
-    price: data.price,
-    district: data.district,
-    year: data.year,
-    mileage: data.mileage,
-    desc: data.desc,
-    photos: finalUrls,
-    status: "moderation",
   };
 
-  const res = await fetch(`${API_BASE}/api/listings/${editItem.id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const handleUpdateCounters = async (
+    id: number,
+    counters: {
+      views_count?: number;
+      shares_count?: number;
+      likes_count?: number;
+    },
+  ) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/listings/${id}/counters`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(counters),
+      });
 
-  if (!res.ok) {
-    console.error("update error", await res.text());
-    alert("Не удалось сохранить изменения. Попробуй ещё раз.");
-    return;
-  }
+      if (!res.ok) {
+        console.error("counters update failed", await res.text());
+        alert("Не удалось обновить счётчики. Попробуй ещё раз.");
+        return;
+      }
 
-  await refreshListings();
-  setEditItem(null);
-  setView(editReturnView === "admin" ? "admin" : "profile");
+      const updated: Listing = await res.json();
+
+      // обновляем общий список
+      setItems((prev) =>
+        prev.map((it) => (it.id === updated.id ? updated : it)),
+      );
+
+      // если карточка сейчас открыта в детальном просмотре — тоже обновим
+      setSelected((prev) =>
+        prev && prev.id === updated.id ? updated : prev,
+      );
+    } catch (e) {
+      console.error("counters update error", e);
+      alert("Ошибка при обновлении счётчиков.");
+    }
   };
-const handleOpenSellerProfile = (username: string) => {
-  // берём все объявления этого продавца
-  const sellerAds = items.filter(
-    (it) =>
-      it.owner &&
-      username &&
-      it.owner.toLowerCase() === username.toLowerCase() &&
-      (it.status ?? "active") === "active"
-  );
 
-  setSellerProfileUsername(username);
-  setSellerProfileItems(sellerAds);
-  setView("seller_profile");
-};
+  // ===== Бесконечный скролл по main =====
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (view !== "home" && view !== "fav") return;
 
-const handleSetBadge = async (
-  id: number,
-  badge: "top" | "premium" | null,
-) => {
-  try {
-    const res = await fetch(`${API_BASE}/api/listings/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ badge }),
-    });
+    const el = e.currentTarget;
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
 
-    if (!res.ok) throw new Error("badge update failed");
+    if (distanceToBottom < 200) {
+      const base = view === "fav" ? favItems : activeItems;
 
-    const updated: Listing = await res.json();
-
-    setItems((prev) =>
-      prev.map((it) => (it.id === id ? updated : it)),
-    );
-  } catch (e) {
-    console.error("badge update error", e);
-    alert("Не удалось изменить выделение объявления (ТОП/ПРЕМИУМ).");
-  }
-};
+      setVisibleCount((prev) => {
+        if (prev >= base.length) return prev; // уже всё показали
+        return Math.min(prev + LOAD_STEP, base.length);
+      });
+    }
+  };
 
   // ===== Рендер =====
   return (
@@ -453,7 +759,23 @@ const handleSetBadge = async (
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-2 pb-24 pt-8">
+      <main
+        ref={mainRef}
+        className="flex-1 overflow-y-auto px-2 pb-24 pt-8"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onScroll={handleScroll}
+      >
+        {/* 🔄 Индикатор pull-to-refresh (только на главной и избранном) */}
+        {(view === "home" || view === "fav") && pullDistance > 0 && (
+          <div className="flex justify-center text-[11px] text-slate-400 mb-2">
+            {pullDistance > PULL_THRESHOLD
+              ? "Отпусти, чтобы обновить"
+              : "Потяни вниз, чтобы обновить"}
+          </div>
+        )}
+
         {view === "item" && selected ? (
           <ItemDetail
             item={selected}
@@ -466,9 +788,10 @@ const handleSetBadge = async (
                 (it) =>
                   it.owner &&
                   selected.owner &&
-                  it.owner.toLowerCase() === selected.owner.toLowerCase()
+                  it.owner.toLowerCase() === selected.owner.toLowerCase(),
               ).length
             }
+            onShare={handleShareListing}
           />
         ) : view === "profile" ? (
           <ProfileView
@@ -494,6 +817,7 @@ const handleSetBadge = async (
             onDelete={handleDeleteListing}
             onEditListing={handleEditFromAdmin}
             onSetBadge={handleSetBadge}
+            onUpdateCounters={handleUpdateCounters}
           />
         ) : view === "add" ? (
           <AddView onBack={goHome} onSubmit={handleAddListing} />

@@ -7,9 +7,30 @@ from datetime import datetime, timedelta
 import os
 import uuid
 import json
+from sqlalchemy.exc import OperationalError
+from pydantic import BaseModel  # для LikeDelta
 
+# ===== БАЗА ДАННЫХ =====
 DATABASE_URL = "sqlite:///./db.sqlite3"
 engine = create_engine(DATABASE_URL, echo=False)
+
+
+def create_db_and_tables():
+    # создаём таблицы, если их нет
+    SQLModel.metadata.create_all(engine)
+
+    # 🔧 мягкая миграция: добавляем недостающие колонки для счётчиков
+    with engine.connect() as conn:
+        for col in ("views_count", "shares_count", "likes_count"):
+            try:
+                conn.exec_driver_sql(
+                    f"ALTER TABLE listing ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0"
+                )
+            except OperationalError as e:
+                # если колонка уже есть — игнорируем, остальные ошибки пробрасываем
+                if "duplicate column name" not in str(e):
+                    raise
+
 
 # ===== МОДЕЛИ =====
 
@@ -20,12 +41,21 @@ class ListingBase(SQLModel):
     year: Optional[int] = None
     mileage: Optional[int] = None
     desc: Optional[str] = None
-    owner: Optional[str] = None             # username продавца (@без собаки)
-    seller_name: Optional[str] = None       # Имя + фамилия
+    owner: Optional[str] = None           # username продавца (@без собаки)
+    seller_name: Optional[str] = None     # Имя + фамилия
     seller_photo_url: Optional[str] = None  # URL фото продавца
-    status: str = "active"                  # active | moderation | hidden
-    badge: Optional[str] = None             # "top" | "premium" | None
+    status: str = "active"                # active | moderation | hidden
+    badge: Optional[str] = None           # "top" | "premium" | None
 
+    # 🔹 глобальные счётчики
+    views_count: int = 0
+    shares_count: int = 0
+    likes_count: int = 0
+
+class ListingCountersUpdate(SQLModel):
+    views_count: Optional[int] = None
+    shares_count: Optional[int] = None
+    likes_count: Optional[int] = None
 
 class ListingUpdate(SQLModel):
     title: Optional[str] = None
@@ -36,14 +66,14 @@ class ListingUpdate(SQLModel):
     desc: Optional[str] = None
     photos: Optional[List[str]] = None
     status: Optional[str] = None
-    badge: Optional[str] = None             # "top" | "premium" | None
+    badge: Optional[str] = None           # "top" | "premium" | None
 
 
 class Listing(ListingBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    photos_json: str = "[]"                 # массив URL'ов в виде JSON-строки
+    photos_json: str = "[]"               # массив URL'ов в виде JSON-строки
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    published_at: Optional[datetime] = None # когда стало active
+    published_at: Optional[datetime] = None  # когда стало active
 
 
 class ListingCreate(ListingBase):
@@ -75,7 +105,7 @@ app = FastAPI()
 # CORS (для dev можно оставить *)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # потом сузим
+    allow_origins=["*"],  # потом сузим
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -89,7 +119,9 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.on_event("startup")
 def on_startup():
-    SQLModel.metadata.create_all(engine)
+    # используем нашу функцию с мягкой миграцией
+    create_db_and_tables()
+
 
 # ===== ЗАГРУЗКА ФОТО =====
 
@@ -108,6 +140,7 @@ async def upload_photo(file: UploadFile = File(...)):
 
     url = f"/uploads/{filename}"
     return {"url": url}
+
 
 # ===== API ОБЪЯВЛЕНИЙ =====
 
@@ -132,7 +165,6 @@ def list_listings(session: Session = Depends(get_session)):
 
     if changed:
         session.commit()
-        # после коммита объекты в памяти уже с обновленным status
 
     out: list[ListingRead] = []
     for row in rows:
@@ -153,9 +185,13 @@ def list_listings(session: Session = Depends(get_session)):
                 photos=json.loads(row.photos_json or "[]"),
                 created_at=row.created_at,
                 published_at=row.published_at,
+                views_count=row.views_count,
+                shares_count=row.shares_count,
+                likes_count=row.likes_count,
             )
         )
     return out
+
 
 @app.post("/api/listings", response_model=ListingRead)
 def create_listing(data: ListingCreate, session: Session = Depends(get_session)):
@@ -192,6 +228,9 @@ def create_listing(data: ListingCreate, session: Session = Depends(get_session))
         photos=json.loads(listing.photos_json or "[]"),
         created_at=listing.created_at,
         published_at=listing.published_at,
+        views_count=listing.views_count,
+        shares_count=listing.shares_count,
+        likes_count=listing.likes_count,
     )
 
 
@@ -235,6 +274,9 @@ def update_listing_status(
         photos=json.loads(listing.photos_json or "[]"),
         created_at=listing.created_at,
         published_at=listing.published_at,
+        views_count=listing.views_count,
+        shares_count=listing.shares_count,
+        likes_count=listing.likes_count,
     )
 
 
@@ -288,6 +330,9 @@ def update_listing(
         photos=json.loads(listing.photos_json or "[]"),
         created_at=listing.created_at,
         published_at=listing.published_at,
+        views_count=listing.views_count,
+        shares_count=listing.shares_count,
+        likes_count=listing.likes_count,
     )
 
 
@@ -340,4 +385,169 @@ def update_listing_badge(
         photos=json.loads(listing.photos_json or "[]"),
         created_at=listing.created_at,
         published_at=listing.published_at,
+        views_count=listing.views_count,
+        shares_count=listing.shares_count,
+        likes_count=listing.likes_count,
+    )
+
+
+# ===== СЧЁТЧИКИ =====
+
+class LikeDelta(BaseModel):
+    delta: int = 1  # +1 или -1
+
+
+@app.post("/api/listings/{listing_id}/views", response_model=ListingRead)
+def increment_views(
+    listing_id: int,
+    session: Session = Depends(get_session),
+):
+    listing = session.get(Listing, listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    listing.views_count = (listing.views_count or 0) + 1
+    session.add(listing)
+    session.commit()
+    session.refresh(listing)
+
+    return ListingRead(
+        id=listing.id,
+        title=listing.title,
+        price=listing.price,
+        district=listing.district,
+        year=listing.year,
+        mileage=listing.mileage,
+        desc=listing.desc,
+        owner=listing.owner,
+        seller_name=listing.seller_name,
+        seller_photo_url=listing.seller_photo_url,
+        status=listing.status,
+        badge=listing.badge,
+        photos=json.loads(listing.photos_json or "[]"),
+        created_at=listing.created_at,
+        published_at=listing.published_at,
+        views_count=listing.views_count,
+        shares_count=listing.shares_count,
+        likes_count=listing.likes_count,
+    )
+
+
+@app.post("/api/listings/{listing_id}/likes", response_model=ListingRead)
+def update_likes(
+    listing_id: int,
+    payload: LikeDelta,
+    session: Session = Depends(get_session),
+):
+    listing = session.get(Listing, listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    current = listing.likes_count or 0
+    new_value = current + payload.delta
+    if new_value < 0:
+        new_value = 0
+
+    listing.likes_count = new_value
+    session.add(listing)
+    session.commit()
+    session.refresh(listing)
+
+    return ListingRead(
+        id=listing.id,
+        title=listing.title,
+        price=listing.price,
+        district=listing.district,
+        year=listing.year,
+        mileage=listing.mileage,
+        desc=listing.desc,
+        owner=listing.owner,
+        seller_name=listing.seller_name,
+        seller_photo_url=listing.seller_photo_url,
+        status=listing.status,
+        badge=listing.badge,
+        photos=json.loads(listing.photos_json or "[]"),
+        created_at=listing.created_at,
+        published_at=listing.published_at,
+        views_count=listing.views_count,
+        shares_count=listing.shares_count,
+        likes_count=listing.likes_count,
+    )
+
+
+@app.post("/api/listings/{listing_id}/shares", response_model=ListingRead)
+def increment_shares(
+    listing_id: int,
+    session: Session = Depends(get_session),
+):
+    listing = session.get(Listing, listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    listing.shares_count = (listing.shares_count or 0) + 1
+    session.add(listing)
+    session.commit()
+    session.refresh(listing)
+
+    return ListingRead(
+        id=listing.id,
+        title=listing.title,
+        price=listing.price,
+        district=listing.district,
+        year=listing.year,
+        mileage=listing.mileage,
+        desc=listing.desc,
+        owner=listing.owner,
+        seller_name=listing.seller_name,
+        seller_photo_url=listing.seller_photo_url,
+        status=listing.status,
+        badge=listing.badge,
+        photos=json.loads(listing.photos_json or "[]"),
+        created_at=listing.created_at,
+        published_at=listing.published_at,
+        views_count=listing.views_count,
+        shares_count=listing.shares_count,
+        likes_count=listing.likes_count,
+    )
+@app.patch("/api/listings/{listing_id}/counters", response_model=ListingRead)
+def update_counters(
+    listing_id: int,
+    data: ListingCountersUpdate = Body(...),
+    session: Session = Depends(get_session),
+):
+    listing = session.get(Listing, listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    # если поле не пришло — не трогаем
+    if data.views_count is not None:
+        listing.views_count = max(0, data.views_count)
+    if data.shares_count is not None:
+        listing.shares_count = max(0, data.shares_count)
+    if data.likes_count is not None:
+        listing.likes_count = max(0, data.likes_count)
+
+    session.add(listing)
+    session.commit()
+    session.refresh(listing)
+
+    return ListingRead(
+        id=listing.id,
+        title=listing.title,
+        price=listing.price,
+        district=listing.district,
+        year=listing.year,
+        mileage=listing.mileage,
+        desc=listing.desc,
+        owner=listing.owner,
+        seller_name=listing.seller_name,
+        seller_photo_url=listing.seller_photo_url,
+        status=listing.status,
+        badge=listing.badge,
+        photos=json.loads(listing.photos_json or "[]"),
+        created_at=listing.created_at,
+        published_at=listing.published_at,
+        views_count=listing.views_count,
+        shares_count=listing.shares_count,
+        likes_count=listing.likes_count,
     )

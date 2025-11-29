@@ -19,4 +19,8 @@ export type Listing = {
   created_at?: string;   // дата публикации
   published_at?: string;
   badge?: "top" | "premium" | null;
+  views_count?: number;
+  likes_count?: number;
+  shares_count?: number;
+  
 };

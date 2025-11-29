@@ -10,7 +10,8 @@ type AdminListingCardProps = {
   onDelete?: (id: number) => void;
   onEditListing?: (item: Listing) => void;
   onPreview: () => void;
-  onSetBadge?: (id: number, badge: "top" | "premium" | null) => void; // 👈
+  onSetBadge?: (id: number, badge: "top" | "premium" | null) => void;
+  onEditCounters?: (item: Listing) => void;
 };
 
 export const AdminListingCard: React.FC<AdminListingCardProps> = ({
@@ -22,6 +23,7 @@ export const AdminListingCard: React.FC<AdminListingCardProps> = ({
   onEditListing,
   onPreview,
   onSetBadge,
+  onEditCounters,
 }) => {
   const handleDelete = () => {
     if (window.confirm("Удалить это объявление?")) {
@@ -49,19 +51,85 @@ export const AdminListingCard: React.FC<AdminListingCardProps> = ({
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
 
-        {/* бейдж ID */}
-        <div
-          className="
-            absolute top-2 left-2
-            px-2 py-0.5 text-[10px]
-            rounded-full bg-black/60 text-slate-200
-            border border-slate-600/80
-          "
-        >
-          ID: {item.id}
-        </div>
+        {/* ID + счётчики в одном компактном блоке */}
+<div
+  className="
+    absolute top-2 left-2
+    inline-flex items-center gap-2
+    px-3 py-[3px]
+    rounded-full bg-black/55
+    border border-slate-700/70
+    text-[10px] text-slate-200
+    shadow-[0_0_6px_rgba(0,0,0,0.4)]
+    backdrop-blur-sm
+    z-20
+  "
+>
+  {/* ID */}
+  <span className="font-semibold text-slate-100">
+    ID: {item.id}
+  </span>
 
-        {/* статус + маленький бейдж */}
+  {/* Разделитель */}
+  <span className="opacity-40">•</span>
+
+  {/* 👁 просмотры */}
+  <div className="flex items-center gap-1">
+    <svg
+      viewBox="0 0 24 24"
+      className="w-[10px] h-[10px]"
+      fill="none"
+      stroke="rgba(148,163,184,0.85)"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+    <span>{item.views_count ?? 0}</span>
+  </div>
+
+  <span className="opacity-40">•</span>
+
+  {/* ↗ репосты */}
+  <div className="flex items-center gap-1">
+    <svg
+      viewBox="0 0 24 24"
+      className="w-[10px] h-[10px]"
+      fill="none"
+      stroke="rgba(148,163,184,0.85)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+      <path d="M16 8l-4-4-4 4" />
+      <path d="M12 4v12" />
+    </svg>
+    <span>{item.shares_count ?? 0}</span>
+  </div>
+
+  <span className="opacity-40">•</span>
+
+  {/* ❤ лайки */}
+  <div className="flex items-center gap-1">
+    <svg
+      viewBox="0 0 24 24"
+      className="w-[10px] h-[10px]"
+      fill="none"
+      stroke="rgba(248,250,252,0.9)"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.84 6.61a5.5 5.5 0 0 0-7.78 0L12 7.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 22l7.78-6.55 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+    <span>{item.likes_count ?? 0}</span>
+  </div>
+</div>
+
+        {/* статус + ТОП/ПРЕМИУМ (справа сверху) */}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
           <div>
             {item.status === "moderation" && (
@@ -81,7 +149,6 @@ export const AdminListingCard: React.FC<AdminListingCardProps> = ({
             )}
           </div>
 
-          {/* мини-индикатор ТОП/ПРЕМИУМ */}
           {item.badge === "top" && (
             <span className="inline-flex items-center px-2 py-[2px] rounded-full text-[10px] bg-amber-400 text-slate-900 font-semibold shadow-[0_0_10px_rgba(251,191,36,0.7)]">
               🔥 ТОП
@@ -94,6 +161,7 @@ export const AdminListingCard: React.FC<AdminListingCardProps> = ({
           )}
         </div>
 
+        {/* заголовок + цена (внизу картинки) */}
         <div className="absolute bottom-2 left-2 right-2 flex flex-col gap-1">
           <div className="text-[15px] font-semibold text-slate-50 line-clamp-2 drop-shadow">
             {item.title}
@@ -232,6 +300,24 @@ export const AdminListingCard: React.FC<AdminListingCardProps> = ({
         >
           Редактировать
         </button>
+
+        {/* Кнопка редактирования счётчиков */}
+        {onEditCounters && (
+          <button
+            type="button"
+            onClick={() => onEditCounters(item)}
+            className="
+              flex-1 px-3 py-1.5 rounded-xl
+              text-[11px] font-medium
+              bg-slate-900/80 border border-slate-600/70
+              text-slate-200
+              hover:bg-slate-800
+              active:scale-95
+            "
+          >
+            ⚙ Счётчики
+          </button>
+        )}
 
         {/* Удалить — всегда доступно */}
         <button

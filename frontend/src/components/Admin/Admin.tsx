@@ -17,6 +17,14 @@ type AdminProps = {
   onDelete?: (id: number) => void;
   onEditListing?: (item: Listing) => void;
   onSetBadge?: (id: number, badge: "top" | "premium" | null) => void;
+  onUpdateCounters?: (
+    id: number,
+    counters: {
+      views_count?: number;
+      shares_count?: number;
+      likes_count?: number;
+    }
+  ) => void;
 };
 
 export const Admin: React.FC<AdminProps> = ({
@@ -29,6 +37,7 @@ export const Admin: React.FC<AdminProps> = ({
   onDelete,
   onEditListing,
   onSetBadge,
+  onUpdateCounters,
 }) => {
   const [filter, setFilter] = useState<FilterValue>("moderation");
   const [search, setSearch] = useState("");
@@ -121,6 +130,49 @@ export const Admin: React.FC<AdminProps> = ({
 
     return res;
   }, [items, filter, onlyWithPhotos, search, sort, searchId]);
+
+
+    const handleEditCounters = (item: Listing) => {
+    if (!onUpdateCounters) return;
+
+    const currentViews = item.views_count ?? 0;
+    const currentShares = item.shares_count ?? 0;
+    const currentLikes = item.likes_count ?? 0;
+
+    const viewsStr = window.prompt(
+      `Просмотры (сейчас: ${currentViews})`,
+      String(currentViews),
+    );
+    if (viewsStr === null) return;
+
+    const sharesStr = window.prompt(
+      `Репосты (сейчас: ${currentShares})`,
+      String(currentShares),
+    );
+    if (sharesStr === null) return;
+
+    const likesStr = window.prompt(
+      `Лайки (сейчас: ${currentLikes})`,
+      String(currentLikes),
+    );
+    if (likesStr === null) return;
+
+    const views = Number(viewsStr);
+    const shares = Number(sharesStr);
+    const likes = Number(likesStr);
+
+    const payload: {
+      views_count?: number;
+      shares_count?: number;
+      likes_count?: number;
+    } = {};
+
+    if (!Number.isNaN(views)) payload.views_count = views;
+    if (!Number.isNaN(shares)) payload.shares_count = shares;
+    if (!Number.isNaN(likes)) payload.likes_count = likes;
+
+    onUpdateCounters(item.id, payload);
+  };
 
   return (
     <div className="max-w-xl mx-auto px-1 py-1 space-y-2 relative">
@@ -273,6 +325,7 @@ export const Admin: React.FC<AdminProps> = ({
             onEditListing={onEditListing}
             onPreview={() => setPreviewItem(it)}
             onSetBadge={onSetBadge}
+            onEditCounters={handleEditCounters}
           />
         ))}
       </div>
