@@ -14,6 +14,21 @@ type AdminListingCardProps = {
   onEditCounters?: (item: Listing) => void;
 };
 
+// 🔹 Хелпер: приводит фото к корректному URL
+const getPhotoUrl = (photo?: string | null) => {
+  if (!photo) return "";
+  // старые объявления уже с полным https-URL
+  if (photo.startsWith("http://") || photo.startsWith("https://")) {
+    return photo;
+  }
+  // на всякий случай добавим слэш, если его нет
+  if (!photo.startsWith("/")) {
+    return "/" + photo;
+  }
+  // обычный путь вида /uploads/xxx.jpeg
+  return photo;
+};
+
 export const AdminListingCard: React.FC<AdminListingCardProps> = ({
   item,
   onApprove,
@@ -31,6 +46,9 @@ export const AdminListingCard: React.FC<AdminListingCardProps> = ({
     }
   };
 
+  const firstPhoto =
+    item.photos && item.photos.length > 0 ? item.photos[0] : undefined;
+
   return (
     <div
       className="
@@ -43,8 +61,8 @@ export const AdminListingCard: React.FC<AdminListingCardProps> = ({
       <div
         className="h-[150px] bg-cover bg-center relative cursor-pointer"
         style={{
-          backgroundImage: item.photos[0]
-            ? `url(${item.photos[0]})`
+          backgroundImage: firstPhoto
+            ? `url(${getPhotoUrl(firstPhoto)})`
             : "linear-gradient(135deg,#020617,#0f172a)",
         }}
         onClick={onPreview}
@@ -52,82 +70,82 @@ export const AdminListingCard: React.FC<AdminListingCardProps> = ({
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
 
         {/* ID + счётчики в одном компактном блоке */}
-<div
-  className="
-    absolute top-2 left-2
-    inline-flex items-center gap-2
-    px-3 py-[3px]
-    rounded-full bg-black/55
-    border border-slate-700/70
-    text-[10px] text-slate-200
-    shadow-[0_0_6px_rgba(0,0,0,0.4)]
-    backdrop-blur-sm
-    z-20
-  "
->
-  {/* ID */}
-  <span className="font-semibold text-slate-100">
-    ID: {item.id}
-  </span>
+        <div
+          className="
+            absolute top-2 left-2
+            inline-flex items-center gap-2
+            px-3 py-[3px]
+            rounded-full bg-black/55
+            border border-slate-700/70
+            text-[10px] text-slate-200
+            shadow-[0_0_6px_rgba(0,0,0,0.4)]
+            backdrop-blur-sm
+            z-20
+          "
+        >
+          {/* ID */}
+          <span className="font-semibold text-slate-100">
+            ID: {item.id}
+          </span>
 
-  {/* Разделитель */}
-  <span className="opacity-40">•</span>
+          {/* Разделитель */}
+          <span className="opacity-40">•</span>
 
-  {/* 👁 просмотры */}
-  <div className="flex items-center gap-1">
-    <svg
-      viewBox="0 0 24 24"
-      className="w-[10px] h-[10px]"
-      fill="none"
-      stroke="rgba(148,163,184,0.85)"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-    <span>{item.views_count ?? 0}</span>
-  </div>
+          {/* 👁 просмотры */}
+          <div className="flex items-center gap-1">
+            <svg
+              viewBox="0 0 24 24"
+              className="w-[10px] h-[10px]"
+              fill="none"
+              stroke="rgba(148,163,184,0.85)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span>{item.views_count ?? 0}</span>
+          </div>
 
-  <span className="opacity-40">•</span>
+          <span className="opacity-40">•</span>
 
-  {/* ↗ репосты */}
-  <div className="flex items-center gap-1">
-    <svg
-      viewBox="0 0 24 24"
-      className="w-[10px] h-[10px]"
-      fill="none"
-      stroke="rgba(148,163,184,0.85)"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
-      <path d="M16 8l-4-4-4 4" />
-      <path d="M12 4v12" />
-    </svg>
-    <span>{item.shares_count ?? 0}</span>
-  </div>
+          {/* ↗ репосты */}
+          <div className="flex items-center gap-1">
+            <svg
+              viewBox="0 0 24 24"
+              className="w-[10px] h-[10px]"
+              fill="none"
+              stroke="rgba(148,163,184,0.85)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+              <path d="M16 8l-4-4-4 4" />
+              <path d="M12 4v12" />
+            </svg>
+            <span>{item.shares_count ?? 0}</span>
+          </div>
 
-  <span className="opacity-40">•</span>
+          <span className="opacity-40">•</span>
 
-  {/* ❤ лайки */}
-  <div className="flex items-center gap-1">
-    <svg
-      viewBox="0 0 24 24"
-      className="w-[10px] h-[10px]"
-      fill="none"
-      stroke="rgba(248,250,252,0.9)"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20.84 6.61a5.5 5.5 0 0 0-7.78 0L12 7.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 22l7.78-6.55 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-    <span>{item.likes_count ?? 0}</span>
-  </div>
-</div>
+          {/* ❤ лайки */}
+          <div className="flex items-center gap-1">
+            <svg
+              viewBox="0 0 24 24"
+              className="w-[10px] h-[10px]"
+              fill="none"
+              stroke="rgba(248,250,252,0.9)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20.84 6.61a5.5 5.5 0 0 0-7.78 0L12 7.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 22l7.78-6.55 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+            <span>{item.likes_count ?? 0}</span>
+          </div>
+        </div>
 
         {/* статус + ТОП/ПРЕМИУМ (справа сверху) */}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1">

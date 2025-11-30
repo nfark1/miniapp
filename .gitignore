@@ -1,0 +1,12 @@
+# backend env
+backend/.venv/
+backend/__pycache__/
+__pycache__/
+*.pyc
+
+# runtime data
+backend/uploads/
+backend/db.sqlite3
+
+# прочее
+.env

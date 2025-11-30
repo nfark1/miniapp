@@ -15,8 +15,7 @@ import type { AddFormData, LocalPhoto } from "./components/AddView/AddView";
 const INITIAL_VISIBLE = 6;
 const LOAD_STEP = 6;
 
-const API_BASE =
-  "https://symmetrical-capybara-7vxw5747qpgq3wxpg-8001.app.github.dev";
+const API_BASE = "";
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);

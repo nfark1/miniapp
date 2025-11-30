@@ -1,0 +1,19 @@
+autorunok59.ru {
+    encode gzip
+
+    # ===== API → FastAPI backend =====
+    @api {
+        path /api/*
+    }
+    reverse_proxy @api 127.0.0.1:8000
+
+    # ===== Картинки объявлений =====
+    handle_path /uploads/* {
+        root * /var/www/miniapp/backend/uploads
+        file_server
+    }
+
+    # ===== Фронтенд (SPA) =====
+    root * /var/www/miniapp/frontend/dist
+    file_server
+}
