@@ -111,8 +111,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# статика для фото
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+UPLOAD_DIR = "/var/www/miniapp/backend/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
