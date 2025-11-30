@@ -1,12 +1,13 @@
-# backend env
+# Python venv
 backend/.venv/
-backend/__pycache__/
+
+# Байт-код и кеши
 __pycache__/
 *.pyc
 
-# runtime data
+# Runtime файлы backend'a
 backend/uploads/
 backend/db.sqlite3
 
-# прочее
+# Секреты
 .env
