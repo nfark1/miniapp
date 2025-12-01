@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
-import './index.css'  // 👈 вот это важно
+import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -9,13 +9,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 )
 
+// === MINI APP FULLSCREEN ===
 if (window.Telegram?.WebApp) {
   const tg = window.Telegram.WebApp;
 
-  // фуллскрин
+  // говорим Telegram «я загрузился»
+  tg.ready();
+
+  // раскрыть мини-апп на весь экран
   tg.expand();
 
-  // отключаем свайпы вниз
+  // отключить свайпы вниз (чтобы не закрывалось)
   tg.disableSwipeBack?.();
   tg.disableVerticalSwipes?.();
 }
